@@ -1,5 +1,6 @@
 import streamlit as st
 import yt_dlp
+import os
 
 import download_video
 
@@ -25,3 +26,4 @@ if download_button:
             mime="video/mp4",
             type='primary'
         )
+    os.remove(f"video_files/{location}.mp4") 

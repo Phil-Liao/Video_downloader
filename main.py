@@ -14,7 +14,6 @@ url = st.text_input("Enter the url of the video", disabled=display_1)
 download_button = st.button("Download", type="primary", disabled=display_1)
 
 
-
 if download_button:
     location = download_video.download_video(url)
     display_1 = True

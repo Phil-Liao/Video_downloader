@@ -27,8 +27,7 @@
                     autocomplete="off"
                 >
                 <div class="form-text">
-                    This is a family security question. Enter the correct home town to access the video downloader.<br>
-                    <small class="text-muted">Debug: Try entering "douliou" (current test value)</small>
+                    This is a family security question. Enter the correct home town to access the video downloader.
                 </div>
                 </div>
             </div>
@@ -60,12 +59,6 @@
         const originalText = btn.innerHTML;
         const hometownInput = document.getElementById('home_town');
         
-        // Debug logging
-        console.log('Form submitted');
-        console.log('Input value:', hometownInput.value);
-        console.log('Form action:', this.action);
-        console.log('Form method:', this.method);
-        
         // Check if input has value before submitting
         if (!hometownInput.value.trim()) {
             e.preventDefault();
@@ -73,11 +66,10 @@
             return;
         }
         
-        // Add loading state but don't disable the input
+        // Add loading state
         btn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Checking...';
         btn.disabled = true;
         btn.classList.add('loading');
-        // Don't disable the input field - this was causing the issue
         
         // Reset function
         function resetButton() {

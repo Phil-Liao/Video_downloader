@@ -6,7 +6,12 @@ from werkzeug.utils import secure_filename
 from functools import wraps
 
 app = Flask(__name__)
-app.secret_key = 'your-secret-key-change-this'  # Change this to a secure secret key
+app.secret_key = os.environ.get('SECRET_KEY', 'change-this-to-a-secure-secret-key-in-production')  # Use environment variable in production
+
+# Production configuration
+app.config['SESSION_COOKIE_SECURE'] = os.environ.get('FLASK_ENV') == 'production'
+app.config['SESSION_COOKIE_HTTPONLY'] = True
+app.config['PERMANENT_SESSION_LIFETIME'] = 3600  # 1 hour session timeout
 
 # Authentication decorator
 def login_required(f):
@@ -27,6 +32,8 @@ def download_video(url):
         'outtmpl': os.path.join(temp_dir, '%(title)s.%(ext)s'),
         'cookiefile': 'cookies.firefox-private.txt' if os.path.exists('cookies.firefox-private.txt') else None,
         'user_agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'quiet': True,  # Suppress verbose output
+        'no_warnings': True,  # Suppress warnings
         'http_headers': {
             'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
             'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
@@ -86,35 +93,17 @@ def download_video(url):
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
-    print(f"Login route accessed with method: {request.method}")
-    
     if request.method == 'POST':
-        print("POST request received")
-        
-        # Debug: Print all form data
-        print("Form data received:", dict(request.form))
-        print("Request content type:", request.content_type)
-        
-        # Try different ways to get the data
         home_town = request.form.get('home_town', '').strip().lower()
-        print(f"Home town received via get(): '{home_town}'")
-        
-        # Alternative way to get form data
-        if 'home_town' in request.form:
-            alt_name = request.form['home_town'].strip()
-            print(f"Home town via direct access: '{alt_name}'")
         
         if home_town == 'douliou':
-            print("Login successful!")
             session['logged_in'] = True
             session['user_name'] = 'Family Member'
             flash('Welcome! You have been logged in successfully.', 'success')
             return redirect(url_for('index'))
         else:
-            print(f"Login failed. Expected 'douliou', got '{home_town}'")
-            flash(f'Incorrect answer. You entered: "{home_town}". Please try again.', 'error')
+            flash('Incorrect answer. Please try again.', 'error')
     
-    print("Rendering login template")
     return render_template('login.html')
 
 @app.route('/logout')
@@ -160,16 +149,15 @@ def download():
         flash(f'Error: {str(e)}', 'error')
         return redirect(url_for('index'))
 
+# Redirect root to login if not authenticated
+@app.before_request
+def check_login():
+    if request.endpoint and request.endpoint != 'login' and request.endpoint != 'static':
+        if 'logged_in' not in session or not session['logged_in']:
+            if request.endpoint != 'login':
+                return redirect(url_for('login'))
+
 if __name__ == '__main__':
     # Ensure the video_files directory exists
     os.makedirs('video_files', exist_ok=True)
-    
-    # Redirect root to login if not authenticated
-    @app.before_request
-    def check_login():
-        if request.endpoint and request.endpoint != 'login' and request.endpoint != 'static':
-            if 'logged_in' not in session or not session['logged_in']:
-                if request.endpoint != 'login':
-                    return redirect(url_for('login'))
-    
-    app.run(debug=True, host='0.0.0.0', port=8080) 
+    app.run(debug=False, host='0.0.0.0', port=8080) 

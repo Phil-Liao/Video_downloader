@@ -31,23 +31,21 @@ A modern web application for downloading videos from various platforms using yt-
    **Option B - Manual:**
 
    - Install a browser extension like "Get cookies.txt LOCALLY" or "cookies.txt"
-   - Go to YouTube.com while logged in
-   - Export cookies for youtube.com domain
+   - Go to YouTube.com while logged in - Export cookies for youtube.com domain
    - Save as `cookies.firefox-private.txt` in the app directory
 
 3. Run the application:
 
-   ```bash
-   python run.py
-   ```
-
-   or directly:
+   **For Local Development:**
 
    ```bash
    python main.py
    ```
 
-4. Open your browser and navigate to: `http://localhost:8080`
+   **For Production Deployment (PythonAnywhere):**
+   See `DEPLOYMENT.md` for detailed instructions.
+
+4. Open your browser and navigate to: `http://localhost:8080` (local) or your PythonAnywhere URL
 
 5. **Login**: You'll be prompted with a security question. Enter the correct answer to access the video downloader.
 
@@ -71,12 +69,15 @@ The application includes a family security system:
 ```
 Video_downloader/
 ├── main.py                      # Flask application
-├── run.py                       # Application runner
+├── wsgi.py                      # WSGI configuration for deployment
 ├── requirements.txt             # Python dependencies
+├── extract_cookies.py           # Cookie extraction helper
+├── DEPLOYMENT.md                # PythonAnywhere deployment guide
 ├── cookies.firefox-private.txt  # Browser cookies (optional)
 ├── templates/                   # HTML templates
 │   ├── base.html               # Base template
-│   └── index.html              # Main page template
+│   ├── index.html              # Main page template
+│   └── login.html              # Login page template
 ├── static/                     # Static files (CSS, JS, images)
 └── video_files/                # Temporary video storage
 ```

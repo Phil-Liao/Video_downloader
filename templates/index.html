@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="card">
+    <div class="card-body p-5">
+        <form method="POST" action="{{ url_for('download') }}" id="downloadForm">
+            <div class="mb-4">
+                <label for="url" class="form-label">
+                    <i class="fas fa-link me-2"></i>
+                    Video URL
+                </label>
+                <input 
+                    type="url" 
+                    class="form-control form-control-lg" 
+                    id="url" 
+                    name="url" 
+                    placeholder="https://www.youtube.com/watch?v=..." 
+                    required
+                >
+                <div class="form-text">
+                    Enter the URL of the video you want to download (YouTube, Vimeo, etc.)<br>
+                    <small class="text-muted">
+                        <strong>Note:</strong> If you encounter bot detection errors, try using browser cookies or wait a few minutes before retrying.
+                    </small>
+                </div>
+            </div>
+            
+            <div class="d-grid">
+                <button type="submit" class="btn btn-primary btn-lg" id="downloadBtn">
+                    <i class="fas fa-download me-2"></i>
+                    Download Video
+                </button>
+            </div>
+        </form>
+        
+        <hr class="my-4">
+        
+        <div class="alert alert-info">
+            <h6><i class="fas fa-info-circle me-2"></i>Having issues with YouTube bot detection?</h6>
+            <small>
+                <strong>Solution:</strong> Export your browser cookies to <code>cookies.firefox-private.txt</code> in the app directory.<br>
+                <strong>How:</strong> Use browser extensions like "Get cookies.txt" or "cookies.txt" to export cookies from your logged-in YouTube session.
+            </small>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.getElementById('downloadForm').addEventListener('submit', function(e) {
+        const btn = document.getElementById('downloadBtn');
+        const originalText = btn.innerHTML;
+        const urlInput = document.getElementById('url');
+        
+        // Add loading state
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Processing...';
+        btn.disabled = true;
+        btn.classList.add('loading');
+        urlInput.disabled = true;
+        
+        // Add visual feedback
+        const card = document.querySelector('.card');
+        card.style.borderColor = 'rgba(20, 184, 166, 0.5)';
+        
+        // Reset function
+        function resetButton() {
+            btn.innerHTML = originalText;
+            btn.disabled = false;
+            btn.classList.remove('loading');
+            urlInput.disabled = false;
+            card.style.borderColor = 'rgba(20, 184, 166, 0.2)';
+        }
+        
+        // Re-enable button after 30 seconds as a fallback
+        setTimeout(resetButton, 30000);
+        
+        // Reset on page visibility change (if user comes back)
+        document.addEventListener('visibilitychange', function() {
+            if (!document.hidden) {
+                setTimeout(resetButton, 1000);
+            }
+        });
+    });
+    
+    // Add smooth focus effects
+    document.getElementById('url').addEventListener('focus', function() {
+        this.parentElement.style.transform = 'scale(1.02)';
+        this.parentElement.style.transition = 'transform 0.2s ease';
+    });
+    
+    document.getElementById('url').addEventListener('blur', function() {
+        this.parentElement.style.transform = 'scale(1)';
+    });
+</script>
+{% endblock %}

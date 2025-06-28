@@ -1,38 +1,175 @@
-import streamlit as st
+from flask import Flask, request, render_template, send_file, flash, redirect, url_for, session
 import yt_dlp as youtube_dl
 import os
+import tempfile
+from werkzeug.utils import secure_filename
+from functools import wraps
 
+app = Flask(__name__)
+app.secret_key = 'your-secret-key-change-this'  # Change this to a secure secret key
+
+# Authentication decorator
+def login_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'logged_in' not in session or not session['logged_in']:
+            flash('Please log in to access this page.', 'error')
+            return redirect(url_for('login'))
+        return f(*args, **kwargs)
+    return decorated_function
 
 def download_video(url):
-  ydl_opts = {'outtmpl': 'video_files/the_video.%(ext)s',
-              'cookiefile': 'cookies.firefox-private.txt',
-              'http_headers': {
-                  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-                },
-              }
-  with youtube_dl.YoutubeDL(ydl_opts) as ydl:
-      ydl.download([url])
-      result = ydl.extract_info("{}".format(url))
-      title = result.get("title", None)
-      return title
+    # Create a temporary directory for this download
+    temp_dir = tempfile.mkdtemp()
+    
+    # More comprehensive yt-dlp options to avoid bot detection
+    ydl_opts = {
+        'outtmpl': os.path.join(temp_dir, '%(title)s.%(ext)s'),
+        'cookiefile': 'cookies.firefox-private.txt' if os.path.exists('cookies.firefox-private.txt') else None,
+        'user_agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'http_headers': {
+            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+            'Accept-Language': 'en-us,en;q=0.5',
+            'Accept-Encoding': 'gzip,deflate',
+            'Accept-Charset': 'ISO-8859-1,utf-8;q=0.7,*;q=0.7',
+            'Connection': 'keep-alive',
+            'Upgrade-Insecure-Requests': '1',
+        },
+        'extractor_args': {
+            'youtube': {
+                'skip': ['hls', 'dash'],
+                'player_client': ['android', 'web'],
+            }
+        },
+        # Try to avoid rate limiting
+        'sleep_interval': 1,
+        'max_sleep_interval': 5,
+        # Format selection - prefer mp4
+        'format': 'best[ext=mp4]/mp4/best',
+        # Retry options
+        'retries': 3,
+        'fragment_retries': 3,
+        # Ignore errors for unavailable formats
+        'ignoreerrors': False,
+    }
+    
+    try:
+        with youtube_dl.YoutubeDL(ydl_opts) as ydl:
+            result = ydl.extract_info(url, download=True)
+            title = result.get("title", "video")
+            ext = result.get("ext", "mp4")
+            
+            # Find the downloaded file
+            filename = f"{title}.{ext}"
+            filepath = os.path.join(temp_dir, filename)
+            
+            return filepath, filename, title
+    except youtube_dl.utils.ExtractorError as e:
+        error_msg = str(e)
+        if "Sign in to confirm you're not a bot" in error_msg:
+            raise Exception("YouTube is blocking the download due to bot detection. Try using browser cookies or try again later.")
+        elif "Video unavailable" in error_msg:
+            raise Exception("This video is unavailable or private.")
+        elif "age-restricted" in error_msg:
+            raise Exception("This video is age-restricted. Please provide browser cookies to download it.")
+        else:
+            raise Exception(f"Video extraction failed: {error_msg}")
+    except youtube_dl.utils.DownloadError as e:
+        raise Exception(f"Download failed: {str(e)}")
+    except Exception as e:
+        error_msg = str(e)
+        if "Sign in to confirm you're not a bot" in error_msg:
+            raise Exception("YouTube bot detection triggered. Please try: 1) Using browser cookies, 2) Waiting a few minutes, or 3) Using a different video URL.")
+        else:
+            raise Exception(f"Error downloading video: {error_msg}")
 
-title = st.title("The video downloader created with YouTube DL")
-divider_1 = st.divider()
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    print(f"Login route accessed with method: {request.method}")
+    
+    if request.method == 'POST':
+        print("POST request received")
+        
+        # Debug: Print all form data
+        print("Form data received:", dict(request.form))
+        print("Request content type:", request.content_type)
+        
+        # Try different ways to get the data
+        home_town = request.form.get('home_town', '').strip().lower()
+        print(f"Home town received via get(): '{home_town}'")
+        
+        # Alternative way to get form data
+        if 'home_town' in request.form:
+            alt_name = request.form['home_town'].strip()
+            print(f"Home town via direct access: '{alt_name}'")
+        
+        if home_town == 'douliou':
+            print("Login successful!")
+            session['logged_in'] = True
+            session['user_name'] = 'Family Member'
+            flash('Welcome! You have been logged in successfully.', 'success')
+            return redirect(url_for('index'))
+        else:
+            print(f"Login failed. Expected 'douliou', got '{home_town}'")
+            flash(f'Incorrect answer. You entered: "{home_town}". Please try again.', 'error')
+    
+    print("Rendering login template")
+    return render_template('login.html')
 
-display_1 = False
-url = st.text_input("Enter the url of the video", disabled=display_1)
-download_button = st.button("Download", type="primary", disabled=display_1)
+@app.route('/logout')
+def logout():
+    session.clear()
+    flash('You have been logged out successfully.', 'success')
+    return redirect(url_for('login'))
 
+@app.route('/')
+@login_required
+def index():
+    return render_template('index.html')
 
-if download_button:
-    location = download_video(url)
-    display_1 = True
-    with open(f"video_files/{location}.mp4", "rb") as file:
-        download_file = st.download_button(
-            label="Download MP4",
-            data=file,
-            file_name=location,
-            mime="video/mp4",
-            type='primary'
+@app.route('/download', methods=['POST'])
+@login_required
+def download():
+    url = request.form.get('url')
+    
+    if not url:
+        flash('Please enter a valid URL', 'error')
+        return redirect(url_for('index'))
+    
+    try:
+        filepath, filename, title = download_video(url)
+        
+        # Send the file and delete it after sending
+        def remove_file(response):
+            try:
+                os.remove(filepath)
+                os.rmdir(os.path.dirname(filepath))
+            except:
+                pass
+            return response
+        
+        return send_file(
+            filepath, 
+            as_attachment=True, 
+            download_name=secure_filename(filename),
+            mimetype='video/mp4'
         )
-    os.remove(f"video_files/{location}.mp4") 
+    
+    except Exception as e:
+        flash(f'Error: {str(e)}', 'error')
+        return redirect(url_for('index'))
+
+if __name__ == '__main__':
+    # Ensure the video_files directory exists
+    os.makedirs('video_files', exist_ok=True)
+    
+    # Redirect root to login if not authenticated
+    @app.before_request
+    def check_login():
+        if request.endpoint and request.endpoint != 'login' and request.endpoint != 'static':
+            if 'logged_in' not in session or not session['logged_in']:
+                if request.endpoint != 'login':
+                    return redirect(url_for('login'))
+    
+    app.run(debug=True, host='0.0.0.0', port=8080) 

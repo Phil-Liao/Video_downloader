@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+
+{% block title %}Login - Video Downloader{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-body p-5">
+        <div class="text-center mb-4">
+            <i class="fas fa-lock fs-1 mb-3" style="color: #14b8a6;"></i>
+            <h3 class="card-title">Access Required</h3>
+            <p class="text-muted">Please answer the security question to continue</p>
+        </div>
+        
+        <form method="POST" action="{{ url_for('login') }}" id="loginForm">
+            <div class="mb-4">
+                <label for="home_town" class="form-label">
+                    <i class="fas fa-map-marker-alt me-2"></i>
+                    What is your home town?
+                </label>
+                <input 
+                    type="text" 
+                    class="form-control form-control-lg" 
+                    id="home_town" 
+                    name="home_town" 
+                    placeholder="Enter your home town..." 
+                    required
+                    autocomplete="off"
+                >
+                <div class="form-text">
+                    This is a family security question. Enter the correct home town to access the video downloader.<br>
+                    <small class="text-muted">Debug: Try entering "douliou" (current test value)</small>
+                </div>
+                </div>
+            </div>
+            
+            <div class="d-grid">
+                <button type="submit" class="btn btn-primary btn-lg" id="loginBtn">
+                    <i class="fas fa-sign-in-alt me-2"></i>
+                    Login
+                </button>
+            </div>
+        </form>
+        
+        <hr class="my-4">
+        
+        <div class="alert alert-info">
+            <h6><i class="fas fa-info-circle me-2"></i>Security Notice</h6>
+            <small>
+                This video downloader is protected by a family security question. Only authorized family members can access the download functionality.
+            </small>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.getElementById('loginForm').addEventListener('submit', function(e) {
+        const btn = document.getElementById('loginBtn');
+        const originalText = btn.innerHTML;
+        const hometownInput = document.getElementById('home_town');
+        
+        // Debug logging
+        console.log('Form submitted');
+        console.log('Input value:', hometownInput.value);
+        console.log('Form action:', this.action);
+        console.log('Form method:', this.method);
+        
+        // Check if input has value before submitting
+        if (!hometownInput.value.trim()) {
+            e.preventDefault();
+            alert('Please enter your home town');
+            return;
+        }
+        
+        // Add loading state but don't disable the input
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Checking...';
+        btn.disabled = true;
+        btn.classList.add('loading');
+        // Don't disable the input field - this was causing the issue
+        
+        // Reset function
+        function resetButton() {
+            btn.innerHTML = originalText;
+            btn.disabled = false;
+            btn.classList.remove('loading');
+        }
+        
+        // Re-enable button after 5 seconds as a fallback
+        setTimeout(resetButton, 5000);
+    });
+    
+    // Add smooth focus effects
+    document.getElementById('home_town').addEventListener('focus', function() {
+        this.parentElement.style.transform = 'scale(1.02)';
+        this.parentElement.style.transition = 'transform 0.2s ease';
+    });
+    
+    document.getElementById('home_town').addEventListener('blur', function() {
+        this.parentElement.style.transform = 'scale(1)';
+    });
+    
+    // Focus on input when page loads
+    window.addEventListener('load', function() {
+        document.getElementById('home_town').focus();
+    });
+</script>
+{% endblock %}

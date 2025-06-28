@@ -129,8 +129,10 @@ def logout():
     return redirect(url_for('login'))
 
 @app.route('/')
-@login_required
 def index():
+    # Redirect to login if not authenticated, otherwise show main page
+    if 'logged_in' not in session or not session['logged_in']:
+        return redirect(url_for('login'))
     return render_template('index.html')
 
 
@@ -181,13 +183,12 @@ def download():
             flash(f'Error: {error_msg}', 'error')
         return redirect(url_for('index'))
 
-# Redirect root to login if not authenticated
+# Redirect non-authenticated users to login for protected routes
 @app.before_request
 def check_login():
-    if request.endpoint and request.endpoint != 'login' and request.endpoint != 'static':
+    if request.endpoint and request.endpoint not in ['login', 'static', 'index']:
         if 'logged_in' not in session or not session['logged_in']:
-            if request.endpoint != 'login':
-                return redirect(url_for('login'))
+            return redirect(url_for('login'))
 
 if __name__ == '__main__':
     # Ensure the video_files directory exists

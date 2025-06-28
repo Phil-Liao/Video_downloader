@@ -2,6 +2,7 @@ from flask import Flask, request, render_template, send_file, flash, redirect, u
 import yt_dlp as youtube_dl
 import os
 import tempfile
+import shutil
 from werkzeug.utils import secure_filename
 from functools import wraps
 
@@ -67,11 +68,26 @@ def download_video(url):
             title = result.get("title", "video")
             ext = result.get("ext", "mp4")
             
-            # Find the downloaded file
-            filename = f"{title}.{ext}"
-            filepath = os.path.join(temp_dir, filename)
+            # Find the actual downloaded file in the temp directory
+            # Sometimes the filename differs from what we expect due to sanitization
+            downloaded_files = [f for f in os.listdir(temp_dir) if os.path.isfile(os.path.join(temp_dir, f))]
             
-            return filepath, filename, title
+            if not downloaded_files:
+                raise Exception("No file was downloaded")
+            
+            # Get the first (and likely only) downloaded file
+            actual_filename = downloaded_files[0]
+            filepath = os.path.join(temp_dir, actual_filename)
+            
+            # Verify the file actually exists
+            if not os.path.exists(filepath):
+                raise Exception(f"Downloaded file not found at expected location: {filepath}")
+            
+            # Create a clean filename for download
+            safe_title = "".join(c for c in title if c.isalnum() or c in (' ', '-', '_')).strip()
+            safe_filename = f"{safe_title}.{ext}" if safe_title else actual_filename
+            
+            return filepath, safe_filename, title
     except youtube_dl.utils.ExtractorError as e:
         error_msg = str(e)
         if "Sign in to confirm you're not a bot" in error_msg:
@@ -117,36 +133,52 @@ def logout():
 def index():
     return render_template('index.html')
 
+
+
 @app.route('/download', methods=['POST'])
 @login_required
 def download():
-    url = request.form.get('url')
+    url = request.form.get('url', '').strip()
     
+    # Basic URL validation
     if not url:
         flash('Please enter a valid URL', 'error')
+        return redirect(url_for('index'))
+    
+    if not (url.startswith('http://') or url.startswith('https://')):
+        flash('Please enter a valid URL starting with http:// or https://', 'error')
         return redirect(url_for('index'))
     
     try:
         filepath, filename, title = download_video(url)
         
-        # Send the file and delete it after sending
-        def remove_file(response):
+        # Send the file and clean up after
+        def cleanup_file():
             try:
-                os.remove(filepath)
-                os.rmdir(os.path.dirname(filepath))
+                # Remove the entire temp directory
+                temp_dir = os.path.dirname(filepath)
+                shutil.rmtree(temp_dir, ignore_errors=True)
             except:
                 pass
-            return response
         
-        return send_file(
+        response = send_file(
             filepath, 
             as_attachment=True, 
             download_name=secure_filename(filename),
             mimetype='video/mp4'
         )
+        
+        # Schedule cleanup after response is sent
+        response.call_on_close(cleanup_file)
+        return response
     
     except Exception as e:
-        flash(f'Error: {str(e)}', 'error')
+        error_msg = str(e)
+        # Log more details for file-related errors while keeping user message clean
+        if "No such file or directory" in error_msg:
+            flash('Download failed: The video file could not be saved properly. Please try again.', 'error')
+        else:
+            flash(f'Error: {error_msg}', 'error')
         return redirect(url_for('index'))
 
 # Redirect root to login if not authenticated

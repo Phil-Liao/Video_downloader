@@ -10,7 +10,7 @@
                     Video URL
                 </label>
                 <input 
-                    type="url" 
+                    type="text" 
                     class="form-control form-control-lg" 
                     id="url" 
                     name="url" 
@@ -48,42 +48,7 @@
 
 {% block scripts %}
 <script>
-    document.getElementById('downloadForm').addEventListener('submit', function(e) {
-        const btn = document.getElementById('downloadBtn');
-        const originalText = btn.innerHTML;
-        const urlInput = document.getElementById('url');
-        
-        // Add loading state
-        btn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Processing...';
-        btn.disabled = true;
-        btn.classList.add('loading');
-        urlInput.disabled = true;
-        
-        // Add visual feedback
-        const card = document.querySelector('.card');
-        card.style.borderColor = 'rgba(20, 184, 166, 0.5)';
-        
-        // Reset function
-        function resetButton() {
-            btn.innerHTML = originalText;
-            btn.disabled = false;
-            btn.classList.remove('loading');
-            urlInput.disabled = false;
-            card.style.borderColor = 'rgba(20, 184, 166, 0.2)';
-        }
-        
-        // Re-enable button after 30 seconds as a fallback
-        setTimeout(resetButton, 30000);
-        
-        // Reset on page visibility change (if user comes back)
-        document.addEventListener('visibilitychange', function() {
-            if (!document.hidden) {
-                setTimeout(resetButton, 1000);
-            }
-        });
-    });
-    
-    // Add smooth focus effects
+    // Simplified JavaScript - just for visual effects, no form interference
     document.getElementById('url').addEventListener('focus', function() {
         this.parentElement.style.transform = 'scale(1.02)';
         this.parentElement.style.transition = 'transform 0.2s ease';

@@ -28,38 +28,57 @@ def download_video(url):
     # Create a temporary directory for this download
     temp_dir = tempfile.mkdtemp()
     
-    # More comprehensive yt-dlp options to avoid bot detection
+    # Updated yt-dlp options for better compatibility with current YouTube API
     ydl_opts = {
         'outtmpl': os.path.join(temp_dir, '%(title)s.%(ext)s'),
         'cookiefile': 'cookies.firefox-private.txt' if os.path.exists('cookies.firefox-private.txt') else None,
-        'user_agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
         'quiet': True,  # Suppress verbose output
         'no_warnings': True,  # Suppress warnings
+        
+        # Updated user agent and headers for 2025
+        'user_agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
         'http_headers': {
-            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-            'Accept-Language': 'en-us,en;q=0.5',
-            'Accept-Encoding': 'gzip,deflate',
-            'Accept-Charset': 'ISO-8859-1,utf-8;q=0.7,*;q=0.7',
+            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
+            'Accept-Language': 'en-US,en;q=0.9',
+            'Accept-Encoding': 'gzip, deflate, br',
             'Connection': 'keep-alive',
             'Upgrade-Insecure-Requests': '1',
+            'Sec-Fetch-Dest': 'document',
+            'Sec-Fetch-Mode': 'navigate',
+            'Sec-Fetch-Site': 'none',
+            'Sec-Fetch-User': '?1',
         },
+        
+        # Updated extractor arguments for better YouTube compatibility
         'extractor_args': {
             'youtube': {
-                'skip': ['hls', 'dash'],
-                'player_client': ['android', 'web'],
+                'player_client': ['android', 'web', 'ios'],
+                'player_skip': ['configs', 'webpage'],
+                'skip': ['hls'],
             }
         },
-        # Try to avoid rate limiting
+        
+        # Rate limiting and retry settings
         'sleep_interval': 1,
         'max_sleep_interval': 5,
-        # Format selection - prefer mp4
-        'format': 'best[ext=mp4]/mp4/best',
-        # Retry options
-        'retries': 3,
-        'fragment_retries': 3,
-        # Ignore errors for unavailable formats
+        'retries': 5,
+        'fragment_retries': 5,
+        'file_access_retries': 3,
+        
+        # Format selection - prefer mp4 with fallbacks
+        'format': 'best[height<=1080][ext=mp4]/best[ext=mp4]/mp4/best[height<=1080]/best',
+        
+        # Additional options for stability
+        'extract_flat': False,
+        'writethumbnail': False,
+        'writeinfojson': False,
         'ignoreerrors': False,
+        'no_check_certificate': False,
+        
+        # Bypass geo-blocking if needed
+        'geo_bypass': True,
+        'geo_bypass_country': 'US',
     }
     
     try:
@@ -90,19 +109,31 @@ def download_video(url):
             return filepath, safe_filename, title
     except youtube_dl.utils.ExtractorError as e:
         error_msg = str(e)
-        if "Sign in to confirm you're not a bot" in error_msg:
+        if "Failed to extract any player response" in error_msg:
+            raise Exception("YouTube API has changed or yt-dlp needs updating. This is a known issue - please try again later or contact support.")
+        elif "Sign in to confirm you're not a bot" in error_msg:
             raise Exception("YouTube is blocking the download due to bot detection. Try using browser cookies or try again later.")
         elif "Video unavailable" in error_msg:
             raise Exception("This video is unavailable or private.")
         elif "age-restricted" in error_msg:
             raise Exception("This video is age-restricted. Please provide browser cookies to download it.")
+        elif "Private video" in error_msg:
+            raise Exception("This video is private and cannot be downloaded.")
+        elif "This video is only available for Music Premium members" in error_msg:
+            raise Exception("This video requires YouTube Music Premium subscription.")
         else:
             raise Exception(f"Video extraction failed: {error_msg}")
     except youtube_dl.utils.DownloadError as e:
-        raise Exception(f"Download failed: {str(e)}")
+        error_msg = str(e)
+        if "Failed to extract any player response" in error_msg:
+            raise Exception("YouTube API issue detected. Please try again later - this is often temporary.")
+        else:
+            raise Exception(f"Download failed: {error_msg}")
     except Exception as e:
         error_msg = str(e)
-        if "Sign in to confirm you're not a bot" in error_msg:
+        if "Failed to extract any player response" in error_msg:
+            raise Exception("YouTube has updated their system. Please try again later or try a different video.")
+        elif "Sign in to confirm you're not a bot" in error_msg:
             raise Exception("YouTube bot detection triggered. Please try: 1) Using browser cookies, 2) Waiting a few minutes, or 3) Using a different video URL.")
         else:
             raise Exception(f"Error downloading video: {error_msg}")
